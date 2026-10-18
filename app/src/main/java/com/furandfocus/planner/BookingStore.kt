@@ -1,3 +1,4 @@
+
 package com.furandfocus.planner
 
 import android.content.Context
@@ -18,6 +19,25 @@ object BookingStore {
 
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
+
+                val offsets = mutableListOf<Int>()
+                val savedOffsets = item.optJSONArray("reminderOffsetsMinutes")
+
+                if (savedOffsets != null) {
+                    for (j in 0 until savedOffsets.length()) {
+                        val minutes = savedOffsets.optInt(j, 0)
+                        if (minutes > 0) offsets.add(minutes)
+                    }
+                }
+
+                // Older records used a lead time in hours and a second
+                // reminder two hours before the session.
+                if (offsets.isEmpty()) {
+                    val oldHours = item.optInt("reminderHoursBefore", 24)
+                    if (oldHours > 0) offsets.add(oldHours * 60)
+                    offsets.add(120)
+                }
+
                 bookings.add(
                     Booking(
                         id = item.optString("id"),
@@ -26,6 +46,11 @@ object BookingStore {
                         dateTimeMillis = item.optLong("dateTimeMillis"),
                         location = item.optString("location"),
                         notes = item.optString("notes"),
+                        sessionType = item.optString(
+                            "sessionType",
+                            "Pet portrait"
+                        ).ifBlank { "Pet portrait" },
+                        reminderOffsetsMinutes = offsets.distinct().sortedDescending(),
                         reminderDays = item.optInt("reminderDays", 1),
                         reminderHoursBefore = item.optInt("reminderHoursBefore", 24)
                     )
@@ -49,8 +74,17 @@ object BookingStore {
             item.put("dateTimeMillis", booking.dateTimeMillis)
             item.put("location", booking.location)
             item.put("notes", booking.notes)
+            item.put("sessionType", booking.sessionType)
             item.put("reminderDays", booking.reminderDays)
             item.put("reminderHoursBefore", booking.reminderHoursBefore)
+
+            val offsets = JSONArray()
+            booking.reminderOffsetsMinutes
+                .filter { it > 0 }
+                .distinct()
+                .forEach { offsets.put(it) }
+
+            item.put("reminderOffsetsMinutes", offsets)
             array.put(item)
         }
 
