@@ -1,7 +1,9 @@
+
 package com.furandfocus.planner
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
@@ -27,48 +29,42 @@ import java.util.Locale
 class MainActivity : Activity() {
 
     private val bookings = mutableListOf<Booking>()
+
     private lateinit var listContainer: LinearLayout
     private lateinit var countLabel: TextView
+    private lateinit var upcomingCount: TextView
     private lateinit var monthCount: TextView
     private lateinit var filterRow: LinearLayout
+
     private var selectedFilter = "Upcoming"
+    private var selectedDateTime = Calendar.getInstance()
 
-    private var selectedDateTime = Calendar.getInstance().apply {
-        add(Calendar.DAY_OF_MONTH, 1)
-        set(Calendar.HOUR_OF_DAY, 10)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
-
-    private val cream = Color.rgb(248, 246, 240)
+    private val cream = Color.rgb(248, 246, 239)
+    private val darkGreen = Color.rgb(47, 78, 63)
+    private val sage = Color.rgb(220, 231, 217)
+    private val mutedGreen = Color.rgb(106, 129, 108)
+    private val darkText = Color.rgb(42, 49, 42)
+    private val mutedText = Color.rgb(115, 119, 108)
     private val white = Color.WHITE
-    private val ink = Color.rgb(43, 54, 44)
-    private val green = Color.rgb(67, 100, 76)
-    private val paleGreen = Color.rgb(230, 237, 226)
-    private val muted = Color.rgb(123, 127, 116)
-    private val border = Color.rgb(230, 229, 219)
-    private val gold = Color.rgb(190, 153, 94)
+    private val palePink = Color.rgb(247, 229, 223)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        bookings.clear()
         bookings.addAll(BookingStore.getAll(this))
-        requestNotificationPermission()
         ReminderScheduler.scheduleAll(this, bookings)
 
         buildScreen()
         refreshBookings()
-    }
 
-    private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                100
+                1001
             )
         }
     }
@@ -76,253 +72,241 @@ class MainActivity : Activity() {
     private fun buildScreen() {
         val scroll = ScrollView(this).apply {
             setBackgroundColor(cream)
-            clipToPadding = false
+            isFillViewport = true
         }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(24), dp(20), dp(32))
+            setPadding(dp(20), dp(20), dp(20), dp(28))
         }
 
+        scroll.addView(
+            root,
+            ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        setContentView(scroll)
+
+        // Brand header
         val brandRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
 
         val logo = TextView(this).apply {
-            text = "F"
-            textSize = 23f
-            gravity = Gravity.CENTER
+            text = "F&F"
+            textSize = 19f
             setTextColor(white)
             typeface = Typeface.DEFAULT_BOLD
-            background = rounded(green, 15)
+            gravity = Gravity.CENTER
+            background = rounded(darkGreen, 16)
         }
 
-        brandRow.addView(logo, LinearLayout.LayoutParams(dp(46), dp(46)))
+        brandRow.addView(
+            logo,
+            LinearLayout.LayoutParams(dp(58), dp(58))
+        )
 
         val brandText = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, 0, 0)
         }
 
-        brandText.addView(text(
-            "FUR & FOCUS",
-            13f,
-            green,
-            true
-        ).apply {
-            letterSpacing = 0.18f
-        })
-
-        brandText.addView(text(
-            "PET PHOTOGRAPHY",
-            10f,
-            muted,
-            true
-        ).apply {
-            letterSpacing = 0.12f
-            setPadding(0, dp(3), 0, 0)
-        })
+        brandText.addView(
+            text(
+                "FUR & FOCUS",
+                19f,
+                darkGreen,
+                true
+            )
+        )
+        brandText.addView(
+            text(
+                "PHOTOGRAPHY PLANNER",
+                10f,
+                mutedText,
+                true
+            )
+        )
 
         brandRow.addView(
             brandText,
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            LinearLayout.LayoutParams(0, -2, 1f)
         )
-
-        val today = text(
-            SimpleDateFormat("EEE, d MMM", Locale.UK).format(Date()),
-            12f,
-            muted,
-            true
-        )
-        today.gravity = Gravity.CENTER
-        today.background = rounded(white, 18)
-        today.setPadding(dp(12), dp(10), dp(12), dp(10))
-        brandRow.addView(today)
 
         root.addView(brandRow)
+        root.addView(space(24))
 
-        val heading = text("Your studio.", 32f, ink, true)
-        heading.setPadding(0, dp(28), 0, dp(5))
-        root.addView(heading)
+        // Intro
+        root.addView(
+            text("Your sessions,", 29f, darkText, true)
+        )
+        root.addView(
+            text("beautifully organised.", 25f, darkGreen, true)
+        )
+        root.addView(space(8))
+        root.addView(
+            text(
+                "Keep track of your dogs, clients and upcoming shoots.",
+                14f,
+                mutedText
+            )
+        )
+        root.addView(space(22))
 
-        root.addView(text(
-            "All your sessions, in one place.",
-            15f,
-            muted
-        ))
-
+        // Hero card
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(green, 24)
-            setPadding(dp(22), dp(22), dp(22), dp(22))
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+            background = rounded(darkGreen, 22)
         }
 
-        val heroEyebrow = text("YOUR PHOTOGRAPHY DIARY", 11f, paleGreen, true)
-        heroEyebrow.letterSpacing = 0.12f
-        hero.addView(heroEyebrow)
+        hero.addView(
+            text("READY FOR YOUR NEXT SHOOT?", 11f, sage, true)
+        )
+        hero.addView(space(8))
+        hero.addView(
+            text(
+                "Every wag deserves\na little spotlight.",
+                23f,
+                white,
+                true
+            )
+        )
+        hero.addView(space(16))
 
-        countLabel = text("Ready for your next session?", 23f, white, true)
-        countLabel.setPadding(0, dp(12), 0, dp(7))
-        hero.addView(countLabel)
-
-        hero.addView(text(
-            "Keep track of every client and every wagging tail.",
-            13f,
-            Color.rgb(224, 232, 219)
-        ))
-
-        val heroButton = Button(this).apply {
-            text = "+   Add a session"
+        val addButton = Button(this).apply {
+            text = "+  Add a photography session"
+            textSize = 14f
             isAllCaps = false
-            textSize = 15f
+            setTextColor(darkGreen)
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(green)
-            background = rounded(cream, 15)
+            background = rounded(sage, 14)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { showAddBookingDialog() }
         }
 
-        val heroButtonParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(52)
+        hero.addView(
+            addButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(52)
+            )
         )
-        heroButtonParams.topMargin = dp(20)
-        hero.addView(heroButton, heroButtonParams)
 
-        val heroParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+        root.addView(hero)
+        root.addView(space(22))
+
+        // Statistics
+        root.addView(
+            text("YOUR OVERVIEW", 12f, mutedText, true)
         )
-        heroParams.topMargin = dp(25)
-        root.addView(hero, heroParams)
+        root.addView(space(10))
 
         val statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
 
-        val upcomingCard = statCard(
-            "UPCOMING",
-            "0",
-            "sessions booked"
-        )
-        monthCount = upcomingCard.second
+        val upcomingCard = statCard("UPCOMING", "0", "sessions booked")
+        upcomingCount = upcomingCard.second
 
-        val monthCard = statCard(
-            "THIS MONTH",
-            "0",
-            "sessions scheduled"
-        )
+        val monthCard = statCard("THIS MONTH", "0", "sessions scheduled")
+        monthCount = monthCard.second
 
         statsRow.addView(
             upcomingCard.first,
             LinearLayout.LayoutParams(0, dp(112), 1f).apply {
-                marginEnd = dp(7)
+                marginEnd = dp(6)
             }
         )
+
         statsRow.addView(
             monthCard.first,
             LinearLayout.LayoutParams(0, dp(112), 1f).apply {
-                marginStart = dp(7)
+                marginStart = dp(6)
             }
         )
 
-        val statsParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        statsParams.topMargin = dp(14)
-        root.addView(statsRow, statsParams)
+        root.addView(statsRow)
+        root.addView(space(24))
 
-        val sectionRow = LinearLayout(this).apply {
+        // Booking list heading
+        val headingRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(30), 0, dp(14))
         }
 
-        sectionRow.addView(
-            text("Your sessions", 21f, ink, true),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        headingRow.addView(
+            text("Your sessions", 21f, darkText, true),
+            LinearLayout.LayoutParams(0, -2, 1f)
         )
 
-        sectionRow.addView(text(
-            "BOOKINGS",
-            10f,
-            green,
-            true
-        ).apply {
-            letterSpacing = 0.1f
-        })
+        countLabel = text("0 sessions", 12f, mutedText)
+        headingRow.addView(countLabel)
 
-        root.addView(sectionRow)
+        root.addView(headingRow)
+        root.addView(space(12))
 
         filterRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
+
         root.addView(filterRow)
-        refreshFilters()
+        root.addView(space(14))
 
         listContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
 
-        val listParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        listParams.topMargin = dp(14)
-        root.addView(listContainer, listParams)
+        root.addView(listContainer)
 
-        root.addView(text(
-            "Made with care for every furry face.",
-            12f,
-            muted
-        ).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(28), 0, dp(8))
-        })
-
-        scroll.addView(root)
-        setContentView(scroll)
+        refreshFilters()
     }
 
     private fun statCard(
-        label: String,
-        initialValue: String,
-        caption: String
+        title: String,
+        initialNumber: String,
+        subtitle: String
     ): Pair<LinearLayout, TextView> {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(white, 20)
-            setPadding(dp(16), dp(15), dp(12), dp(12))
+            setPadding(dp(15), dp(14), dp(12), dp(12))
+            background = rounded(white, 18)
         }
 
-        card.addView(text(label, 10f, muted, true).apply {
-            letterSpacing = 0.06f
-        })
+        card.addView(text(title, 10f, mutedText, true))
+        card.addView(space(7))
 
-        val number = text(initialValue, 27f, green, true)
-        number.setPadding(0, dp(7), 0, dp(1))
+        val number = text(initialNumber, 27f, darkGreen, true)
         card.addView(number)
-
-        card.addView(text(caption, 11f, muted))
+        card.addView(space(2))
+        card.addView(text(subtitle, 11f, mutedText))
 
         return Pair(card, number)
     }
 
     private fun refreshFilters() {
-        if (!::filterRow.isInitialized) return
         filterRow.removeAllViews()
 
-        listOf("Upcoming", "Past", "All").forEach { filter ->
+        val filters = listOf("Upcoming", "Past", "All")
+
+        filters.forEach { filter ->
             val selected = filter == selectedFilter
+
             val chip = TextView(this).apply {
                 text = filter
                 textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
-                typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                setTextColor(if (selected) white else muted)
-                background = rounded(if (selected) green else white, 18)
-                setPadding(dp(17), dp(11), dp(17), dp(11))
+                setPadding(dp(18), dp(10), dp(18), dp(10))
+                setTextColor(if (selected) white else darkGreen)
+                background = rounded(
+                    if (selected) darkGreen else white,
+                    22
+                )
                 setOnClickListener {
                     selectedFilter = filter
                     refreshFilters()
@@ -330,19 +314,19 @@ class MainActivity : Activity() {
                 }
             }
 
-            val params = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+            filterRow.addView(
+                chip,
+                LinearLayout.LayoutParams(-2, dp(42)).apply {
+                    marginEnd = dp(8)
+                }
             )
-            params.marginEnd = dp(8)
-            filterRow.addView(chip, params)
         }
     }
 
     private fun showAddBookingDialog() {
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), 0)
+            setPadding(dp(22), dp(8), dp(22), dp(4))
         }
 
         val clientInput = input("Client's name")
@@ -351,24 +335,29 @@ class MainActivity : Activity() {
         val notesInput = input("Notes (optional)")
 
         form.addView(clientInput)
+        form.addView(space(10))
         form.addView(dogInput)
+        form.addView(space(10))
         form.addView(locationInput)
+        form.addView(space(10))
         form.addView(notesInput)
 
         val dateButton = Button(this).apply {
             isAllCaps = false
-            text = "Date: ${dateLabel(selectedDateTime.timeInMillis)}"
+            text = "Choose date: ${dateLabel(selectedDateTime.timeInMillis)}"
             setOnClickListener {
+                val now = Calendar.getInstance()
+
                 DatePickerDialog(
                     this@MainActivity,
                     { _, year, month, day ->
-                        selectedDateTime.set(
-                            Calendar.YEAR,
-                            year
-                        )
+                        selectedDateTime.set(Calendar.YEAR, year)
                         selectedDateTime.set(Calendar.MONTH, month)
                         selectedDateTime.set(Calendar.DAY_OF_MONTH, day)
-                        text = "Date: ${dateLabel(selectedDateTime.timeInMillis)}"
+
+                        text = "Choose date: ${
+                            dateLabel(selectedDateTime.timeInMillis)
+                        }"
                     },
                     selectedDateTime.get(Calendar.YEAR),
                     selectedDateTime.get(Calendar.MONTH),
@@ -376,18 +365,18 @@ class MainActivity : Activity() {
                 ).show()
             }
         }
-        form.addView(dateButton)
 
         val timeButton = Button(this).apply {
             isAllCaps = false
-            text = "Time: ${timeLabel(selectedDateTime)}"
+            text = "Choose time: ${timeLabel(selectedDateTime)}"
             setOnClickListener {
                 TimePickerDialog(
                     this@MainActivity,
                     { _, hour, minute ->
                         selectedDateTime.set(Calendar.HOUR_OF_DAY, hour)
                         selectedDateTime.set(Calendar.MINUTE, minute)
-                        text = "Time: ${timeLabel(selectedDateTime)}"
+
+                        text = "Choose time: ${timeLabel(selectedDateTime)}"
                     },
                     selectedDateTime.get(Calendar.HOUR_OF_DAY),
                     selectedDateTime.get(Calendar.MINUTE),
@@ -395,278 +384,302 @@ class MainActivity : Activity() {
                 ).show()
             }
         }
+
+        form.addView(space(8))
+        form.addView(dateButton)
         form.addView(timeButton)
 
-        val dialog = android.app.AlertDialog.Builder(this)
+        AlertDialog.Builder(this)
             .setTitle("New photography session")
             .setView(form)
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save session", null)
-            .create()
+            .setPositiveButton("Save session") { _, _ ->
+                val client = clientInput.text.toString().trim()
+                val dog = dogInput.text.toString().trim()
 
-        dialog.setOnShowListener {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener {
-                    val client = clientInput.text.toString().trim()
-                    val dog = dogInput.text.toString().trim()
-
-                    if (client.isBlank() || dog.isBlank()) {
-                        Toast.makeText(
-                            this,
-                            "Please enter both names.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        return@setOnClickListener
-                    }
-
-                    val booking = Booking(
-                        clientName = client,
-                        dogName = dog,
-                        dateTimeMillis = selectedDateTime.timeInMillis,
-                        location = locationInput.text.toString().trim(),
-                        notes = notesInput.text.toString().trim(),
-                        reminderDays = 1,
-                        reminderHoursBefore = 24
-                    )
-
-                    bookings.add(booking)
-                    bookings.sortBy { it.dateTimeMillis }
-                    BookingStore.saveAll(this, bookings)
-                    ReminderScheduler.schedule(this, booking)
-                    refreshBookings()
-                    dialog.dismiss()
-                    Toast.makeText(this, "Session saved", Toast.LENGTH_SHORT).show()
+                if (client.isBlank() || dog.isBlank()) {
+                    Toast.makeText(
+                        this,
+                        "Please enter both the client's and dog's names.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setPositiveButton
                 }
-        }
-        dialog.show()
+
+                val booking = Booking(
+                    clientName = client,
+                    dogName = dog,
+                    dateTimeMillis = selectedDateTime.timeInMillis,
+                    location = locationInput.text.toString().trim(),
+                    notes = notesInput.text.toString().trim()
+                )
+
+                bookings.add(booking)
+                bookings.sortBy { it.dateTimeMillis }
+
+                BookingStore.saveAll(this, bookings)
+                ReminderScheduler.schedule(this, booking)
+
+                selectedDateTime = Calendar.getInstance()
+                refreshBookings()
+
+                Toast.makeText(
+                    this,
+                    "Photography session saved.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .show()
     }
 
     private fun input(hintText: String): EditText {
         return EditText(this).apply {
             hint = hintText
-            textSize = 15f
-            setSingleLine(
-                hintText.contains("name") ||
-                    hintText.contains("location")
-            )
+            textSize = 14f
+            setSingleLine(hintText != "Notes (optional)")
+            if (hintText == "Notes (optional)") {
+                minLines = 2
+                maxLines = 4
+                setSingleLine(false)
+            }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = rounded(white, 12)
         }
     }
 
     private fun refreshBookings() {
-        if (!::listContainer.isInitialized) return
-
         listContainer.removeAllViews()
 
         val now = System.currentTimeMillis()
-        val all = bookings.sortedBy { it.dateTimeMillis }
-        val upcoming = all.filter { it.dateTimeMillis >= now }
-        val thisMonth = Calendar.getInstance()
+        val upcoming = bookings.filter { it.dateTimeMillis >= now }
+        val currentMonth = Calendar.getInstance()
 
-        val monthTotal = upcoming.count {
+        val monthTotal = bookings.count { booking ->
             val date = Calendar.getInstance().apply {
-                timeInMillis = it.dateTimeMillis
+                timeInMillis = booking.dateTimeMillis
             }
-            date.get(Calendar.YEAR) == thisMonth.get(Calendar.YEAR) &&
-                date.get(Calendar.MONTH) == thisMonth.get(Calendar.MONTH)
+
+            date.get(Calendar.YEAR) == currentMonth.get(Calendar.YEAR) &&
+                date.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
         }
 
-        countLabel.text = when (upcoming.size) {
-            0 -> "Ready for your next session?"
-            1 -> "1 session on the horizon"
-            else -> "${upcoming.size} sessions on the horizon"
+        // Update the actual dashboard counters directly.
+        upcomingCount.text = upcoming.size.toString()
+        monthCount.text = monthTotal.toString()
+
+        val filtered = when (selectedFilter) {
+            "Upcoming" -> bookings
+                .filter { it.dateTimeMillis >= now }
+                .sortedBy { it.dateTimeMillis }
+
+            "Past" -> bookings
+                .filter { it.dateTimeMillis < now }
+                .sortedByDescending { it.dateTimeMillis }
+
+            else -> bookings.sortedBy { it.dateTimeMillis }
         }
 
-        // The two dashboard figures sit in separate cards.
-        val stats = findStatNumbers()
-        if (stats.size >= 2) {
-            stats[0].text = upcoming.size.toString()
-            stats[1].text = monthTotal.toString()
-        }
+        countLabel.text = "${filtered.size} ${
+            if (filtered.size == 1) "session" else "sessions"
+        }"
 
-        val shown = when (selectedFilter) {
-            "Past" -> all.filter { it.dateTimeMillis < now }.reversed()
-            "All" -> all
-            else -> upcoming
-        }
-
-        if (shown.isEmpty()) {
-            val empty = LinearLayout(this).apply {
+        if (filtered.isEmpty()) {
+            val emptyCard = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                background = rounded(white, 22)
-                setPadding(dp(22), dp(30), dp(22), dp(30))
+                setPadding(dp(20), dp(28), dp(20), dp(28))
+                background = rounded(white, 18)
             }
 
-            val symbol = text("✦", 30f, gold, true)
-            symbol.gravity = Gravity.CENTER
-            empty.addView(symbol)
+            emptyCard.addView(
+                text(
+                    when (selectedFilter) {
+                        "Upcoming" -> "No upcoming sessions yet"
+                        "Past" -> "No past sessions to show"
+                        else -> "Your session list is empty"
+                    },
+                    17f,
+                    darkGreen,
+                    true
+                )
+            )
 
-            val title = when (selectedFilter) {
-                "Past" -> "No past sessions"
-                "All" -> "Your diary is empty"
-                else -> "Nothing booked just yet"
-            }
+            emptyCard.addView(space(8))
+            emptyCard.addView(
+                text(
+                    "Add a session to keep your photography plans organised.",
+                    13f,
+                    mutedText
+                )
+            )
 
-            empty.addView(text(title, 17f, ink, true).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, dp(10), 0, dp(6))
-            })
-
-            empty.addView(text(
-                if (selectedFilter == "Past")
-                    "Completed sessions will appear here."
-                else
-                    "Add your first session and start building your diary.",
-                13f,
-                muted
-            ).apply {
-                gravity = Gravity.CENTER
-            })
-
-            listContainer.addView(empty)
+            listContainer.addView(emptyCard)
             return
         }
 
-        shown.forEach { booking ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                background = rounded(white, 22)
-                setPadding(dp(18), dp(18), dp(18), dp(16))
-            }
+        filtered.forEach { booking ->
+            listContainer.addView(createBookingCard(booking))
+            listContainer.addView(space(12))
+        }
+    }
 
-            val datePill = TextView(this).apply {
-                text = dateLabel(booking.dateTimeMillis).uppercase(Locale.UK) +
-                    "   ·   " + timeLabel(
-                    Calendar.getInstance().apply {
-                        timeInMillis = booking.dateTimeMillis
-                    }
-                )
-                textSize = 11f
-                letterSpacing = 0.03f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(green)
-                background = rounded(paleGreen, 12)
-                setPadding(dp(11), dp(10), dp(11), dp(10))
-            }
-            card.addView(datePill)
+    private fun createBookingCard(booking: Booking): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(17), dp(16), dp(17), dp(15))
+            background = rounded(white, 18)
+        }
 
-            val dog = text(booking.dogName, 23f, ink, true)
-            dog.setPadding(0, dp(15), 0, dp(4))
-            card.addView(dog)
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
 
-            card.addView(text(
-                "CLIENT  ·  ${booking.clientName}",
-                12f,
-                muted,
+        val dogName = text(booking.dogName, 19f, darkGreen, true)
+        topRow.addView(
+            dogName,
+            LinearLayout.LayoutParams(0, -2, 1f)
+        )
+
+        val isPast = booking.dateTimeMillis < System.currentTimeMillis()
+        val badge = TextView(this).apply {
+            text = if (isPast) "COMPLETED" else "UPCOMING"
+            textSize = 9f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(if (isPast) mutedText else darkGreen)
+            setPadding(dp(9), dp(6), dp(9), dp(6))
+            background = rounded(if (isPast) palePink else sage, 12)
+        }
+
+        topRow.addView(badge)
+        card.addView(topRow)
+        card.addView(space(5))
+
+        card.addView(
+            text("Client: ${booking.clientName}", 14f, darkText)
+        )
+        card.addView(space(8))
+
+        card.addView(
+            text(
+                "📅  ${dateLabel(booking.dateTimeMillis)}  •  ${
+                    timeLabel(booking.dateTimeMillis)
+                }",
+                13f,
+                mutedGreen,
                 true
-            ))
-
-            if (booking.location.isNotBlank()) {
-                card.addView(text(
-                    "⌖  ${booking.location}",
-                    13f,
-                    muted
-                ).apply {
-                    setPadding(0, dp(10), 0, 0)
-                })
-            }
-
-            if (booking.notes.isNotBlank()) {
-                card.addView(text(
-                    booking.notes,
-                    13f,
-                    ink
-                ).apply {
-                    setPadding(0, dp(10), 0, 0)
-                })
-            }
-
-            val delete = TextView(this).apply {
-                text = "Delete booking"
-                textSize = 12f
-                gravity = Gravity.CENTER
-                setTextColor(muted)
-                background = rounded(cream, 12)
-                setPadding(dp(14), dp(11), dp(14), dp(11))
-                setOnClickListener {
-                    android.app.AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Delete this session?")
-                        .setMessage("The booking and its reminders will be removed.")
-                        .setNegativeButton("Keep booking", null)
-                        .setPositiveButton("Delete") { _, _ ->
-                            ReminderScheduler.cancel(this@MainActivity, booking)
-                            bookings.removeAll { it.id == booking.id }
-                            BookingStore.saveAll(this@MainActivity, bookings)
-                            refreshBookings()
-                        }
-                        .show()
-                }
-            }
-
-            val deleteParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            deleteParams.topMargin = dp(16)
-            card.addView(delete, deleteParams)
+        )
 
-            val cardParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+        if (booking.location.isNotBlank()) {
+            card.addView(space(5))
+            card.addView(
+                text("📍  ${booking.location}", 13f, mutedText)
             )
-            cardParams.bottomMargin = dp(13)
-            listContainer.addView(card, cardParams)
-        }
-    }
-
-    private fun findStatNumbers(): List<TextView> {
-        val results = mutableListOf<TextView>()
-        val scroll = findViewById<ScrollView>(android.R.id.content)
-        collectStatNumbers(scroll, results)
-        return results
-    }
-
-    private fun collectStatNumbers(view: View, results: MutableList<TextView>) {
-        if (view is TextView && view.text.toString() in listOf("0", "1", "2", "3", "4", "5")) {
-            if (view.textSize > 20f) results.add(view)
         }
 
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                collectStatNumbers(view.getChildAt(i), results)
+        if (booking.notes.isNotBlank()) {
+            card.addView(space(5))
+            card.addView(
+                text("Notes: ${booking.notes}", 13f, mutedText)
+            )
+        }
+
+        card.addView(space(12))
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+        }
+
+        val deleteButton = Button(this).apply {
+            text = "Delete session"
+            textSize = 12f
+            isAllCaps = false
+            setTextColor(Color.rgb(145, 68, 61))
+            background = rounded(palePink, 12)
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Delete session?")
+                    .setMessage(
+                        "Delete the photography session for ${booking.dogName}?"
+                    )
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Delete") { _, _ ->
+                        ReminderScheduler.cancel(this@MainActivity, booking)
+                        bookings.removeAll { it.id == booking.id }
+                        BookingStore.saveAll(this@MainActivity, bookings)
+                        refreshBookings()
+
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Session deleted.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    .show()
             }
         }
+
+        actions.addView(
+            deleteButton,
+            LinearLayout.LayoutParams(-2, dp(42))
+        )
+
+        card.addView(actions)
+
+        return card
     }
 
     private fun text(
         value: String,
         size: Float,
-        color: Int,
+        colour: Int,
         bold: Boolean = false
-    ): TextView = TextView(this).apply {
-        text = value
-        textSize = size
-        setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+    ): TextView {
+        return TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(colour)
+            if (bold) typeface = Typeface.DEFAULT_BOLD
+        }
     }
 
-    private fun rounded(color: Int, radius: Int): GradientDrawable =
-        GradientDrawable().apply {
-            setColor(color)
+    private fun space(height: Int): View {
+        return View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, dp(height))
+        }
+    }
+
+    private fun rounded(colour: Int, radius: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(colour)
             cornerRadius = dp(radius).toFloat()
         }
+    }
 
-    private fun dateLabel(timeMillis: Long): String =
-        SimpleDateFormat("EEE d MMM yyyy", Locale.UK).format(Date(timeMillis))
+    private fun dateLabel(timeMillis: Long): String {
+        return SimpleDateFormat(
+            "EEE, d MMM yyyy",
+            Locale.UK
+        ).format(Date(timeMillis))
+    }
 
-    private fun timeLabel(calendar: Calendar): String =
-        String.format(
-            Locale.UK,
-            "%02d:%02d",
-            calendar.get(Calendar.HOUR_OF_DAY),
-            calendar.get(Calendar.MINUTE)
-        )
+    private fun timeLabel(calendar: Calendar): String {
+        return SimpleDateFormat(
+            "HH:mm",
+            Locale.UK
+        ).format(calendar.time)
+    }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun timeLabel(timeMillis: Long): String {
+        return SimpleDateFormat(
+            "HH:mm",
+            Locale.UK
+        ).format(Date(timeMillis))
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
 }
