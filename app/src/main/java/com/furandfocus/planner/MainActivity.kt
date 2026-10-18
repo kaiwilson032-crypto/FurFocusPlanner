@@ -5,7 +5,10 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.TimePickerDialog
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -21,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -106,7 +110,10 @@ class MainActivity : Activity() {
             background = rounded(darkGreen, 16)
         }
 
-        brandRow.addView(logo, LinearLayout.LayoutParams(dp(58), dp(58)))
+        brandRow.addView(
+            logo,
+            LinearLayout.LayoutParams(dp(58), dp(58))
+        )
 
         val brandText = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -180,6 +187,46 @@ class MainActivity : Activity() {
         )
 
         root.addView(hero)
+        root.addView(space(12))
+
+        // Manual notification buttons
+        val testNotificationButton = Button(this).apply {
+            text = "Test notification"
+            isAllCaps = false
+            textSize = 14f
+            setOnClickListener {
+                sendPlannerNotification(
+                    "Fur & Focus test",
+                    "Your notifications are working!"
+                )
+            }
+        }
+
+        root.addView(
+            testNotificationButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48)
+            )
+        )
+
+        val upcomingNotificationButton = Button(this).apply {
+            text = "Notify me of all upcoming bookings"
+            isAllCaps = false
+            textSize = 14f
+            setOnClickListener {
+                sendUpcomingBookingsNotification()
+            }
+        }
+
+        root.addView(
+            upcomingNotificationButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48)
+            )
+        )
+
         root.addView(space(22))
 
         // Dashboard statistics
@@ -476,9 +523,7 @@ class MainActivity : Activity() {
                 else -> "Your session list is empty"
             }
 
-            emptyCard.addView(
-                text(emptyTitle, 17f, darkGreen, true)
-            )
+            emptyCard.addView(text(emptyTitle, 17f, darkGreen, true))
             emptyCard.addView(space(8))
             emptyCard.addView(
                 text(
@@ -599,6 +644,93 @@ class MainActivity : Activity() {
         return card
     }
 
+    // Sends a notification to this phone.
+    private fun sendPlannerNotification(title: String, message: String) {
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                1001
+            )
+
+            Toast.makeText(
+                this,
+                "Allow notifications, then tap the button again.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val channelId = "fur_focus_manual_notifications"
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE)
+            as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Fur & Focus planner",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            manager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        manager.notify(
+            (System.currentTimeMillis() % Int.MAX_VALUE).toInt(),
+            notification
+        )
+    }
+
+    // Creates one notification containing every upcoming booking.
+    private fun sendUpcomingBookingsNotification() {
+        val now = System.currentTimeMillis()
+
+        val upcoming = bookings
+            .filter { it.dateTimeMillis >= now }
+            .sortedBy { it.dateTimeMillis }
+
+        if (upcoming.isEmpty()) {
+            sendPlannerNotification(
+                "No upcoming sessions",
+                "You don't currently have any upcoming photography bookings."
+            )
+            return
+        }
+
+        val formatter = SimpleDateFormat("EEE d MMM, HH:mm", Locale.UK)
+
+        val details = upcoming.joinToString("\n\n") { booking ->
+            buildString {
+                append("${booking.dogName} — ${booking.clientName}")
+                append("\n")
+                append(formatter.format(Date(booking.dateTimeMillis)))
+
+                if (booking.location.isNotBlank()) {
+                    append("\n")
+                    append(booking.location)
+                }
+            }
+        }
+
+        sendPlannerNotification(
+            "${upcoming.size} upcoming photography " +
+                if (upcoming.size == 1) "session" else "sessions",
+            details
+        )
+    }
+
     private fun text(
         value: String,
         size: Float,
@@ -615,10 +747,7 @@ class MainActivity : Activity() {
 
     private fun space(height: Int): View {
         return View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                1,
-                dp(height)
-            )
+            layoutParams = LinearLayout.LayoutParams(1, dp(height))
         }
     }
 
