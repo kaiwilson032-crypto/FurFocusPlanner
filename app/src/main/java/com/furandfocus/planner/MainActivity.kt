@@ -58,9 +58,10 @@ class MainActivity : Activity() {
         buildScreen()
         refreshBookings()
 
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.POST_NOTIFICATIONS),
@@ -82,7 +83,7 @@ class MainActivity : Activity() {
 
         scroll.addView(
             root,
-            ScrollView.LayoutParams(
+            ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
@@ -105,31 +106,16 @@ class MainActivity : Activity() {
             background = rounded(darkGreen, 16)
         }
 
-        brandRow.addView(
-            logo,
-            LinearLayout.LayoutParams(dp(58), dp(58))
-        )
+        brandRow.addView(logo, LinearLayout.LayoutParams(dp(58), dp(58)))
 
         val brandText = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, 0, 0)
         }
 
+        brandText.addView(text("FUR & FOCUS", 19f, darkGreen, true))
         brandText.addView(
-            text(
-                "FUR & FOCUS",
-                19f,
-                darkGreen,
-                true
-            )
-        )
-        brandText.addView(
-            text(
-                "PHOTOGRAPHY PLANNER",
-                10f,
-                mutedText,
-                true
-            )
+            text("PHOTOGRAPHY PLANNER", 10f, mutedText, true)
         )
 
         brandRow.addView(
@@ -141,12 +127,8 @@ class MainActivity : Activity() {
         root.addView(space(24))
 
         // Intro
-        root.addView(
-            text("Your sessions,", 29f, darkText, true)
-        )
-        root.addView(
-            text("beautifully organised.", 25f, darkGreen, true)
-        )
+        root.addView(text("Your sessions,", 29f, darkText, true))
+        root.addView(text("beautifully organised.", 25f, darkGreen, true))
         root.addView(space(8))
         root.addView(
             text(
@@ -157,7 +139,7 @@ class MainActivity : Activity() {
         )
         root.addView(space(22))
 
-        // Hero card
+        // Main call-to-action card
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(20))
@@ -200,10 +182,8 @@ class MainActivity : Activity() {
         root.addView(hero)
         root.addView(space(22))
 
-        // Statistics
-        root.addView(
-            text("YOUR OVERVIEW", 12f, mutedText, true)
-        )
+        // Dashboard statistics
+        root.addView(text("YOUR OVERVIEW", 12f, mutedText, true))
         root.addView(space(10))
 
         val statsRow = LinearLayout(this).apply {
@@ -262,7 +242,6 @@ class MainActivity : Activity() {
         }
 
         root.addView(listContainer)
-
         refreshFilters()
     }
 
@@ -291,9 +270,7 @@ class MainActivity : Activity() {
     private fun refreshFilters() {
         filterRow.removeAllViews()
 
-        val filters = listOf("Upcoming", "Past", "All")
-
-        filters.forEach { filter ->
+        listOf("Upcoming", "Past", "All").forEach { filter ->
             val selected = filter == selectedFilter
 
             val chip = TextView(this).apply {
@@ -307,6 +284,7 @@ class MainActivity : Activity() {
                     if (selected) darkGreen else white,
                     22
                 )
+
                 setOnClickListener {
                     selectedFilter = filter
                     refreshFilters()
@@ -345,9 +323,8 @@ class MainActivity : Activity() {
         val dateButton = Button(this).apply {
             isAllCaps = false
             text = "Choose date: ${dateLabel(selectedDateTime.timeInMillis)}"
-            setOnClickListener {
-                val now = Calendar.getInstance()
 
+            setOnClickListener {
                 DatePickerDialog(
                     this@MainActivity,
                     { _, year, month, day ->
@@ -369,6 +346,7 @@ class MainActivity : Activity() {
         val timeButton = Button(this).apply {
             isAllCaps = false
             text = "Choose time: ${timeLabel(selectedDateTime)}"
+
             setOnClickListener {
                 TimePickerDialog(
                     this@MainActivity,
@@ -436,14 +414,16 @@ class MainActivity : Activity() {
         return EditText(this).apply {
             hint = hintText
             textSize = 14f
-            setSingleLine(hintText != "Notes (optional)")
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = rounded(white, 12)
+
             if (hintText == "Notes (optional)") {
                 minLines = 2
                 maxLines = 4
                 setSingleLine(false)
+            } else {
+                setSingleLine(true)
             }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = rounded(white, 12)
         }
     }
 
@@ -463,7 +443,6 @@ class MainActivity : Activity() {
                 date.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
         }
 
-        // Update the actual dashboard counters directly.
         upcomingCount.text = upcoming.size.toString()
         monthCount.text = monthTotal.toString()
 
@@ -491,19 +470,15 @@ class MainActivity : Activity() {
                 background = rounded(white, 18)
             }
 
-            emptyCard.addView(
-                text(
-                    when (selectedFilter) {
-                        "Upcoming" -> "No upcoming sessions yet"
-                        "Past" -> "No past sessions to show"
-                        else -> "Your session list is empty"
-                    },
-                    17f,
-                    darkGreen,
-                    true
-                )
-            )
+            val emptyTitle = when (selectedFilter) {
+                "Upcoming" -> "No upcoming sessions yet"
+                "Past" -> "No past sessions to show"
+                else -> "Your session list is empty"
+            }
 
+            emptyCard.addView(
+                text(emptyTitle, 17f, darkGreen, true)
+            )
             emptyCard.addView(space(8))
             emptyCard.addView(
                 text(
@@ -535,13 +510,13 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val dogName = text(booking.dogName, 19f, darkGreen, true)
         topRow.addView(
-            dogName,
+            text(booking.dogName, 19f, darkGreen, true),
             LinearLayout.LayoutParams(0, -2, 1f)
         )
 
         val isPast = booking.dateTimeMillis < System.currentTimeMillis()
+
         val badge = TextView(this).apply {
             text = if (isPast) "COMPLETED" else "UPCOMING"
             textSize = 9f
@@ -554,15 +529,12 @@ class MainActivity : Activity() {
         topRow.addView(badge)
         card.addView(topRow)
         card.addView(space(5))
-
-        card.addView(
-            text("Client: ${booking.clientName}", 14f, darkText)
-        )
+        card.addView(text("Client: ${booking.clientName}", 14f, darkText))
         card.addView(space(8))
 
         card.addView(
             text(
-                "📅  ${dateLabel(booking.dateTimeMillis)}  •  ${
+                "Date: ${dateLabel(booking.dateTimeMillis)} · ${
                     timeLabel(booking.dateTimeMillis)
                 }",
                 13f,
@@ -573,16 +545,12 @@ class MainActivity : Activity() {
 
         if (booking.location.isNotBlank()) {
             card.addView(space(5))
-            card.addView(
-                text("📍  ${booking.location}", 13f, mutedText)
-            )
+            card.addView(text("Location: ${booking.location}", 13f, mutedText))
         }
 
         if (booking.notes.isNotBlank()) {
             card.addView(space(5))
-            card.addView(
-                text("Notes: ${booking.notes}", 13f, mutedText)
-            )
+            card.addView(text("Notes: ${booking.notes}", 13f, mutedText))
         }
 
         card.addView(space(12))
@@ -598,6 +566,7 @@ class MainActivity : Activity() {
             isAllCaps = false
             setTextColor(Color.rgb(145, 68, 61))
             background = rounded(palePink, 12)
+
             setOnClickListener {
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("Delete session?")
@@ -627,7 +596,6 @@ class MainActivity : Activity() {
         )
 
         card.addView(actions)
-
         return card
     }
 
@@ -647,7 +615,10 @@ class MainActivity : Activity() {
 
     private fun space(height: Int): View {
         return View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(1, dp(height))
+            layoutParams = LinearLayout.LayoutParams(
+                1,
+                dp(height)
+            )
         }
     }
 
@@ -666,17 +637,11 @@ class MainActivity : Activity() {
     }
 
     private fun timeLabel(calendar: Calendar): String {
-        return SimpleDateFormat(
-            "HH:mm",
-            Locale.UK
-        ).format(calendar.time)
+        return SimpleDateFormat("HH:mm", Locale.UK).format(calendar.time)
     }
 
     private fun timeLabel(timeMillis: Long): String {
-        return SimpleDateFormat(
-            "HH:mm",
-            Locale.UK
-        ).format(Date(timeMillis))
+        return SimpleDateFormat("HH:mm", Locale.UK).format(Date(timeMillis))
     }
 
     private fun dp(value: Int): Int {
