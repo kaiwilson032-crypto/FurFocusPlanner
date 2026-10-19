@@ -64,7 +64,6 @@ class MainActivity : Activity() {
         ReminderScheduler.scheduleAll(this, bookings)
 
         buildScreen()
-        refreshBookings()
         requestNotificationPermissionIfNeeded()
     }
 
@@ -81,18 +80,114 @@ class MainActivity : Activity() {
         }
     }
 
+    private lateinit var screenHost: LinearLayout
+    private lateinit var navBar: LinearLayout
+    private var selectedTab = "Bookings"
+
     private fun buildScreen() {
+        val appRoot = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(cream)
+        }
+
+        screenHost = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(cream)
+        }
+        appRoot.addView(
+            screenHost,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+            )
+        )
+
+        navBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(6), dp(7), dp(6), dp(7))
+            setBackgroundColor(white)
+            elevation = dp(10).toFloat()
+        }
+        appRoot.addView(
+            navBar,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(68)
+            )
+        )
+
+        setContentView(appRoot)
+        showTab("Bookings")
+        animateIn(screenHost)
+    }
+
+    private fun showTab(tab: String) {
+        selectedTab = tab
+        screenHost.removeAllViews()
+
+        when (tab) {
+            "Bookings" -> buildBookingsScreen()
+            "Reminders" -> buildRemindersScreen()
+            "Overview" -> buildOverviewScreen()
+            "Settings" -> buildSettingsScreen()
+        }
+
+        buildBottomNavigation()
+        screenHost.post { screenHost.getChildAt(0)?.let { animateIn(it) } }
+    }
+
+    private fun buildBottomNavigation() {
+        navBar.removeAllViews()
+        val items = listOf(
+            Triple("Bookings", "▦", "Bookings"),
+            Triple("Reminders", "◷", "Reminders"),
+            Triple("Overview", "▥", "Overview"),
+            Triple("Settings", "⚙", "Settings")
+        )
+
+        items.forEach { (tab, symbol, label) ->
+            val selected = selectedTab == tab
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(3), dp(4), dp(3), dp(4))
+                isClickable = true
+                isFocusable = true
+                background = rounded(
+                    if (selected) paleSage else white, 13
+                )
+                setOnClickListener {
+                    if (selectedTab != tab) showTab(tab)
+                }
+            }
+
+            val icon = text(symbol, 20f, if (selected) green else mutedText, true)
+            icon.gravity = Gravity.CENTER
+            item.addView(icon)
+
+            val title = text(label, 10f, if (selected) darkGreen else mutedText, selected)
+            title.gravity = Gravity.CENTER
+            item.addView(title)
+
+            navBar.addView(
+                item,
+                LinearLayout.LayoutParams(0, -1, 1f).apply {
+                    marginStart = dp(2)
+                    marginEnd = dp(2)
+                }
+            )
+        }
+    }
+
+    private fun screenScroll(): Pair<ScrollView, LinearLayout> {
         val scroll = ScrollView(this).apply {
             setBackgroundColor(cream)
             isFillViewport = true
             clipToPadding = false
         }
-
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(20), dp(20), dp(32))
+            setPadding(dp(20), dp(20), dp(20), dp(24))
         }
-
         scroll.addView(
             root,
             ViewGroup.LayoutParams(
@@ -100,32 +195,33 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
-        setContentView(scroll)
+        screenHost.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+            )
+        )
+        return Pair(scroll, root)
+    }
 
-        // Brand header with a custom camera-and-paw mark.
+    private fun addBrandHeader(root: LinearLayout) {
         val brandRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-
-        val logo = CameraPawLogo(this)
-        brandRow.addView(logo, LinearLayout.LayoutParams(dp(62), dp(62)))
+        brandRow.addView(CameraPawLogo(this), LinearLayout.LayoutParams(dp(54), dp(54)))
 
         val brandText = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(13), 0, 0, 0)
+            setPadding(dp(12), 0, 0, 0)
         }
-        brandText.addView(text("FUR & FOCUS", 19f, darkGreen, true))
+        brandText.addView(text("FUR & FOCUS", 18f, darkGreen, true))
         brandText.addView(space(3))
         brandText.addView(text("PHOTOGRAPHY PLANNER", 10f, mutedText, true))
-
-        brandRow.addView(
-            brandText,
-            LinearLayout.LayoutParams(0, -2, 1f)
-        )
+        brandRow.addView(brandText, LinearLayout.LayoutParams(0, -2, 1f))
 
         val liveTag = TextView(this).apply {
-            text = "●  PLANNER"
+            text = "● PLANNER"
             textSize = 10f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(green)
@@ -134,119 +230,31 @@ class MainActivity : Activity() {
         }
         brandRow.addView(liveTag)
         root.addView(brandRow)
-        root.addView(space(27))
-
-        root.addView(text("LET'S MAKE", 12f, green, true))
-        root.addView(space(4))
-        root.addView(text("tails wag.", 36f, darkText, true))
-        root.addView(text("One beautiful session at a time.", 16f, mutedText))
         root.addView(space(22))
+    }
 
-        // Main call-to-action panel.
-        val hero = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(21), dp(21), dp(21), dp(21))
-            background = roundedGradient(darkGreen, green, 25)
-            elevation = dp(3).toFloat()
-        }
+    private fun buildBookingsScreen() {
+        val (_, root) = screenScroll()
+        addBrandHeader(root)
 
-        hero.addView(text("YOUR PHOTOGRAPHY BUSINESS", 10f, sage, true))
-        hero.addView(space(10))
-        hero.addView(
-            text("Every wag deserves\na little spotlight.", 25f, white, true)
-        )
-        hero.addView(space(10))
-        hero.addView(
-            text(
-                "Keep your clients, sessions and reminders all in one place.",
-                13f,
-                Color.rgb(226, 237, 225)
-            )
-        )
-        hero.addView(space(19))
+        root.addView(text("YOUR SESSIONS", 12f, green, true))
+        root.addView(space(4))
+        root.addView(text("Every wag deserves a little spotlight.", 25f, darkText, true))
+        root.addView(space(7))
+        root.addView(text("Manage your clients and upcoming photography sessions.", 13f, mutedText))
+        root.addView(space(17))
 
         val addButton = Button(this).apply {
             text = "＋   New photography session"
             textSize = 14f
             isAllCaps = false
-            setTextColor(darkGreen)
+            setTextColor(white)
             typeface = Typeface.DEFAULT_BOLD
-            background = rounded(white, 16)
-            elevation = dp(2).toFloat()
+            background = roundedGradient(darkGreen, green, 16)
             setOnClickListener { showAddBookingDialog() }
         }
-        hero.addView(addButton, LinearLayout.LayoutParams(-1, dp(54)))
-        root.addView(hero)
-        root.addView(space(25))
-
-        sectionLabel(root, "YOUR OVERVIEW", "A little look at what's ahead")
-
-        val statsRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-
-        val upcomingCard = statCard("UPCOMING", "0", "sessions to come", "↗")
-        upcomingCount = upcomingCard.second
-
-        val monthCard = statCard("THIS MONTH", "0", "sessions scheduled", "✦")
-        monthCount = monthCard.second
-
-        statsRow.addView(
-            upcomingCard.first,
-            LinearLayout.LayoutParams(0, dp(132), 1f).apply {
-                marginEnd = dp(7)
-            }
-        )
-        statsRow.addView(
-            monthCard.first,
-            LinearLayout.LayoutParams(0, dp(132), 1f).apply {
-                marginStart = dp(7)
-            }
-        )
-        root.addView(statsRow)
-        root.addView(space(26))
-
-        sectionLabel(root, "QUICK TOOLS", "Make sure you're ready for shoot day")
-
-        root.addView(
-            toolButton("Send a test notification", "●") {
-                sendPlannerNotification(
-                    "Fur & Focus test",
-                    "Your notifications are working."
-                )
-            }
-        )
-        root.addView(space(8))
-        root.addView(
-            toolButton("Test a scheduled reminder · 1 min", "◷") {
-                requestNotificationPermissionIfNeeded()
-                if (
-                    Build.VERSION.SDK_INT >= 33 &&
-                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    Toast.makeText(
-                        this,
-                        "Allow notifications first, then try again.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                } else {
-                    ReminderScheduler.scheduleTest(this)
-                    Toast.makeText(
-                        this,
-                        "Test scheduled. Wait about a minute.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        )
-        root.addView(space(8))
-        root.addView(
-            toolButton("Notify me of upcoming bookings", "♧") {
-                sendUpcomingBookingsNotification()
-            }
-        )
-        root.addView(space(27))
+        root.addView(addButton, LinearLayout.LayoutParams(-1, dp(53)))
+        root.addView(space(23))
 
         val headingRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -263,19 +271,203 @@ class MainActivity : Activity() {
         root.addView(text("All your favourite faces, neatly organised.", 13f, mutedText))
         root.addView(space(16))
 
-        filterRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
+        filterRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         root.addView(filterRow)
         root.addView(space(15))
-
-        listContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
+        listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(listContainer)
 
         refreshFilters()
-        animateIn(root)
+        refreshBookings()
+    }
+
+    private fun buildRemindersScreen() {
+        val (_, root) = screenScroll()
+        addBrandHeader(root)
+        root.addView(text("REMINDER CENTRE", 12f, green, true))
+        root.addView(space(4))
+        root.addView(text("Never miss a shoot.", 29f, darkText, true))
+        root.addView(space(7))
+        root.addView(text("Test notifications and review reminders saved with each booking.", 14f, mutedText))
+        root.addView(space(22))
+
+        val upcoming = bookings.filter { it.dateTimeMillis >= System.currentTimeMillis() }
+            .sortedBy { it.dateTimeMillis }
+        val reminderTotal = upcoming.sumOf { it.reminderOffsetsMinutes.size }
+
+        val summary = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = rounded(white, 20)
+            elevation = dp(2).toFloat()
+        }
+        summary.addView(text("UPCOMING SCHEDULE", 11f, green, true))
+        summary.addView(space(8))
+        summary.addView(text("$reminderTotal reminders", 26f, darkGreen, true))
+        summary.addView(space(4))
+        summary.addView(text("Across ${upcoming.size} upcoming session(s)", 13f, mutedText))
+        root.addView(summary)
+        root.addView(space(18))
+
+        root.addView(sectionCard(
+            "Send a test notification",
+            "Check that Fur & Focus notifications can appear on your phone."
+        ) {
+            sendPlannerNotification("Fur & Focus test", "Your notifications are working.")
+        })
+        root.addView(space(10))
+        root.addView(sectionCard(
+            "Test a scheduled reminder · 1 min",
+            "Schedule a test reminder for approximately one minute from now."
+        ) {
+            requestNotificationPermissionIfNeeded()
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Toast.makeText(this, "Allow notifications first, then try again.", Toast.LENGTH_LONG).show()
+            } else {
+                ReminderScheduler.scheduleTest(this)
+                Toast.makeText(this, "Test scheduled. Wait about a minute.", Toast.LENGTH_LONG).show()
+            }
+        })
+        root.addView(space(10))
+        root.addView(sectionCard(
+            "Notify me of upcoming bookings",
+            "Send a notification listing your future photography sessions."
+        ) { sendUpcomingBookingsNotification() })
+        root.addView(space(24))
+
+        root.addView(text("REMINDERS BY SESSION", 12f, green, true))
+        root.addView(space(10))
+        if (upcoming.isEmpty()) {
+            root.addView(text("No upcoming sessions yet. Add a booking to set up reminders.", 14f, mutedText))
+        } else {
+            upcoming.forEach { booking ->
+                root.addView(sectionCard(
+                    "${booking.dogName} · ${dateLabel(booking.dateTimeMillis)}",
+                    "${booking.clientName} — ${formatReminderOffsets(booking.reminderOffsetsMinutes)}"
+                ) { showTab("Bookings") })
+                root.addView(space(9))
+            }
+        }
+    }
+
+    private fun buildOverviewScreen() {
+        val (_, root) = screenScroll()
+        addBrandHeader(root)
+        root.addView(text("YOUR BUSINESS", 12f, green, true))
+        root.addView(space(4))
+        root.addView(text("A little overview.", 29f, darkText, true))
+        root.addView(space(7))
+        root.addView(text("A quick snapshot of your photography calendar.", 14f, mutedText))
+        root.addView(space(22))
+
+        val now = System.currentTimeMillis()
+        val upcoming = bookings.count { it.dateTimeMillis >= now }
+        val past = bookings.count { it.dateTimeMillis < now }
+        val cal = Calendar.getInstance()
+        val thisMonth = bookings.count {
+            val date = Calendar.getInstance().apply { timeInMillis = it.dateTimeMillis }
+            date.get(Calendar.YEAR) == cal.get(Calendar.YEAR) &&
+                date.get(Calendar.MONTH) == cal.get(Calendar.MONTH)
+        }
+
+        listOf(
+            Triple("UPCOMING SESSIONS", upcoming.toString(), "Sessions still to come"),
+            Triple("THIS MONTH", thisMonth.toString(), "Sessions scheduled this month"),
+            Triple("PAST SESSIONS", past.toString(), "Sessions in your history"),
+            Triple("TOTAL BOOKINGS", bookings.size.toString(), "All saved sessions")
+        ).forEach { (heading, number, subtitle) ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(18), dp(17), dp(18), dp(17))
+                background = rounded(white, 18)
+                elevation = dp(1).toFloat()
+            }
+            card.addView(text(heading, 11f, green, true))
+            card.addView(space(4))
+            card.addView(text(number, 30f, darkGreen, true))
+            card.addView(space(2))
+            card.addView(text(subtitle, 12f, mutedText))
+            root.addView(card)
+            root.addView(space(10))
+        }
+
+        root.addView(space(8))
+        root.addView(sectionCard("View upcoming bookings", "Go to your booking list and manage sessions.") {
+            selectedFilter = "Upcoming"
+            showTab("Bookings")
+        })
+        root.addView(space(10))
+        root.addView(sectionCard("Add a photography session", "Create a new booking with custom reminders.") {
+            showTab("Bookings")
+            screenHost.post { showAddBookingDialog() }
+        })
+    }
+
+    private fun buildSettingsScreen() {
+        val (_, root) = screenScroll()
+        addBrandHeader(root)
+        root.addView(text("APP SETTINGS", 12f, green, true))
+        root.addView(space(4))
+        root.addView(text("Your planner, your way.", 27f, darkText, true))
+        root.addView(space(7))
+        root.addView(text("Useful tools and information for your app.", 14f, mutedText))
+        root.addView(space(22))
+
+        root.addView(sectionCard(
+            "Notification permission",
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) "Notifications are not currently permitted. Tap to request permission."
+            else "Notification permission is granted or not required on this Android version."
+        ) { requestNotificationPermissionIfNeeded() })
+        root.addView(space(10))
+        root.addView(sectionCard(
+            "Send a test notification",
+            "Check whether notifications appear on this device."
+        ) { sendPlannerNotification("Fur & Focus test", "Your notifications are working.") })
+        root.addView(space(10))
+        root.addView(sectionCard(
+            "Notify me of upcoming bookings",
+            "Send a summary of all upcoming sessions."
+        ) { sendUpcomingBookingsNotification() })
+        root.addView(space(22))
+
+        val about = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = rounded(paleSage, 18)
+        }
+        about.addView(text("FUR & FOCUS", 12f, green, true))
+        about.addView(space(5))
+        about.addView(text("Photography Planner", 20f, darkGreen, true))
+        about.addView(space(5))
+        about.addView(text("Made to help organise pet photography clients, sessions and reminders.", 13f, mutedText))
+        root.addView(about)
+    }
+
+    private fun sectionCard(title: String, description: String, action: () -> Unit): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            background = rounded(white, 17)
+            elevation = dp(1).toFloat()
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                tapFeedback(this)
+                action()
+            }
+        }
+        val copy = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        copy.addView(text(title, 14f, darkText, true))
+        copy.addView(space(4))
+        copy.addView(text(description, 12f, mutedText))
+        card.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
+        card.addView(text("›", 24f, green, true))
+        return card
     }
 
     private fun sectionLabel(
@@ -656,8 +848,6 @@ class MainActivity : Activity() {
                 date.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
         }
 
-        upcomingCount.text = upcoming.size.toString()
-        monthCount.text = monthTotal.toString()
 
         val filtered = when (selectedFilter) {
             "Upcoming" -> bookings.filter { it.dateTimeMillis >= now }
@@ -1050,8 +1240,6 @@ class MainActivity : Activity() {
         private val dark = Color.rgb(39, 76, 59)
         private val green = Color.rgb(69, 119, 85)
         private val cream = Color.rgb(249, 248, 243)
-
-        // Fix: this nested class needs its own orange colour.
         private val orange = Color.rgb(225, 155, 94)
 
         private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
