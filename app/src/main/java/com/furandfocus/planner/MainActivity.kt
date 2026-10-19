@@ -1,4 +1,3 @@
-
 package com.furandfocus.planner
 
 import android.Manifest
@@ -1051,6 +1050,9 @@ class MainActivity : Activity() {
         private val dark = Color.rgb(39, 76, 59)
         private val green = Color.rgb(69, 119, 85)
         private val cream = Color.rgb(249, 248, 243)
+
+        // Fix: this nested class needs its own orange colour.
+        private val orange = Color.rgb(225, 155, 94)
 
         private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
