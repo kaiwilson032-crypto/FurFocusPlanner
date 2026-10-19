@@ -1,3 +1,4 @@
+
 package com.furandfocus.planner
 
 import android.Manifest
@@ -20,6 +21,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.EditText
@@ -59,12 +61,29 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableImmersiveNavigation()
 
         bookings.addAll(BookingStore.getAll(this))
         ReminderScheduler.scheduleAll(this, bookings)
 
         buildScreen()
         requestNotificationPermissionIfNeeded()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun enableImmersiveNavigation() {
+        // Hide Android's system navigation bar so it cannot cover the app's bottom tabs.
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            )
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enableImmersiveNavigation()
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -83,6 +102,7 @@ class MainActivity : Activity() {
     private lateinit var screenHost: LinearLayout
     private lateinit var navBar: LinearLayout
     private var selectedTab = "Bookings"
+    private var calendarMonth = Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) }
 
     private fun buildScreen() {
         val appRoot = LinearLayout(this).apply {
@@ -127,6 +147,7 @@ class MainActivity : Activity() {
         when (tab) {
             "Bookings" -> buildBookingsScreen()
             "Reminders" -> buildRemindersScreen()
+            "Calendar" -> buildCalendarScreen()
             "Overview" -> buildOverviewScreen()
             "Settings" -> buildSettingsScreen()
         }
@@ -140,6 +161,7 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("Bookings", "▦", "Bookings"),
             Triple("Reminders", "◷", "Reminders"),
+            Triple("Calendar", "▦", "Calendar"),
             Triple("Overview", "▥", "Overview"),
             Triple("Settings", "⚙", "Settings")
         )
@@ -350,6 +372,137 @@ class MainActivity : Activity() {
                 root.addView(space(9))
             }
         }
+    }
+
+    private fun buildCalendarScreen() {
+        val (_, root) = screenScroll()
+        addBrandHeader(root)
+        root.addView(text("SESSION CALENDAR", 12f, green, true))
+        root.addView(space(4))
+        root.addView(text("Plan your month.", 29f, darkText, true))
+        root.addView(space(7))
+        root.addView(text("Booked dates are marked. Tap a date to see sessions or create a booking.", 14f, mutedText))
+        root.addView(space(20))
+
+        val monthCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(14), dp(14), dp(16))
+            background = rounded(white, 20)
+            elevation = dp(2).toFloat()
+        }
+        root.addView(monthCard)
+
+        fun renderMonth() {
+            monthCard.removeAllViews()
+            val header = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val previous = TextView(this).apply {
+                text = "‹"
+                textSize = 30f
+                gravity = Gravity.CENTER
+                setTextColor(darkGreen)
+                setOnClickListener { calendarMonth.add(Calendar.MONTH, -1); renderMonth() }
+            }
+            header.addView(previous, LinearLayout.LayoutParams(dp(42), dp(44)))
+            val monthTitle = text(SimpleDateFormat("MMMM yyyy", Locale.UK).format(calendarMonth.time), 17f, darkGreen, true)
+            monthTitle.gravity = Gravity.CENTER
+            header.addView(monthTitle, LinearLayout.LayoutParams(0, -2, 1f))
+            val next = TextView(this).apply {
+                text = "›"
+                textSize = 30f
+                gravity = Gravity.CENTER
+                setTextColor(darkGreen)
+                setOnClickListener { calendarMonth.add(Calendar.MONTH, 1); renderMonth() }
+            }
+            header.addView(next, LinearLayout.LayoutParams(dp(42), dp(44)))
+            monthCard.addView(header)
+            monthCard.addView(space(8))
+
+            val weekdays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+            val weekdayRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            weekdays.forEach { day ->
+                val label = text(day, 10f, mutedText, true).apply { gravity = Gravity.CENTER }
+                weekdayRow.addView(label, LinearLayout.LayoutParams(0, dp(30), 1f))
+            }
+            monthCard.addView(weekdayRow)
+
+            val first = calendarMonth.clone() as Calendar
+            first.set(Calendar.DAY_OF_MONTH, 1)
+            val offset = (first.get(Calendar.DAY_OF_WEEK) + 5) % 7
+            val daysInMonth = first.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val rows = (offset + daysInMonth + 6) / 7
+            val today = Calendar.getInstance()
+            for (week in 0 until rows) {
+                val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                for (column in 0..6) {
+                    val dayNumber = week * 7 + column - offset + 1
+                    if (dayNumber !in 1..daysInMonth) {
+                        row.addView(View(this), LinearLayout.LayoutParams(0, dp(43), 1f))
+                    } else {
+                        val dayCal = calendarMonth.clone() as Calendar
+                        dayCal.set(Calendar.DAY_OF_MONTH, dayNumber)
+                        val hasBookings = bookings.any {
+                            val b = Calendar.getInstance().apply { timeInMillis = it.dateTimeMillis }
+                            b.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
+                                b.get(Calendar.MONTH) == dayCal.get(Calendar.MONTH) &&
+                                b.get(Calendar.DAY_OF_MONTH) == dayNumber
+                        }
+                        val isToday = today.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
+                            today.get(Calendar.MONTH) == dayCal.get(Calendar.MONTH) &&
+                            today.get(Calendar.DAY_OF_MONTH) == dayNumber
+                        val cell = LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                            gravity = Gravity.CENTER
+                            setPadding(0, dp(3), 0, dp(3))
+                            background = rounded(
+                                when { isToday -> darkGreen; hasBookings -> sage; else -> white }, 10
+                            )
+                            isClickable = true
+                            isFocusable = true
+                            setOnClickListener { showCalendarDay(dayCal) }
+                        }
+                        cell.addView(text(dayNumber.toString(), 13f,
+                            if (isToday) white else darkText, isToday || hasBookings).apply { gravity = Gravity.CENTER })
+                        val dot = text(if (hasBookings) "•" else " ", 12f, if (isToday) white else green, true)
+                        dot.gravity = Gravity.CENTER
+                        cell.addView(dot)
+                        row.addView(cell, LinearLayout.LayoutParams(0, dp(43), 1f).apply {
+                            setMargins(dp(2), dp(2), dp(2), dp(2))
+                        })
+                    }
+                }
+                monthCard.addView(row)
+            }
+        }
+        renderMonth()
+        root.addView(space(15))
+        root.addView(sectionCard("＋ Create a booking", "Add a photography session and choose its date and time.") {
+            showAddBookingDialog()
+        })
+    }
+
+    private fun showCalendarDay(day: Calendar) {
+        val start = (day.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val end = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
+        val dayBookings = bookings.filter { it.dateTimeMillis >= start.timeInMillis && it.dateTimeMillis < end.timeInMillis }
+            .sortedBy { it.dateTimeMillis }
+        val message = if (dayBookings.isEmpty()) "No sessions booked for this date yet." else
+            dayBookings.joinToString("\n\n") { "${timeLabel(it.dateTimeMillis)} · ${it.dogName}\n${it.clientName}\n${it.sessionType}" }
+        AlertDialog.Builder(this)
+            .setTitle(SimpleDateFormat("EEEE d MMMM", Locale.UK).format(day.time))
+            .setMessage(message)
+            .setNegativeButton("Close", null)
+            .setPositiveButton("Create booking") { _, _ ->
+                val bookingDate = (day.clone() as Calendar).apply {
+                    set(Calendar.HOUR_OF_DAY, 12); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }
+                showAddBookingDialog(bookingDate)
+            }
+            .show()
     }
 
     private fun buildOverviewScreen() {
@@ -596,8 +749,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showAddBookingDialog() {
-        selectedDateTime = Calendar.getInstance()
+    private fun showAddBookingDialog(initialDateTime: Calendar? = null) {
+        selectedDateTime = initialDateTime?.clone() as? Calendar ?: Calendar.getInstance()
 
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
